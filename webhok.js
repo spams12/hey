@@ -1,4 +1,4 @@
-import { Express } from "express";
+const express = require('express');
 const app = express();
 
 // Parse incoming requests with JSON payloads
