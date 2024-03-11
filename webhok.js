@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 
-let currentContent = ''; // Current content of the HTML page
+let postRequestCount = 0; // Counter for POST requests
 
 // Serve the HTML page
 app.get('/', (req, res) => {
@@ -17,23 +17,15 @@ app.get('/', (req, res) => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Dynamic Content</title>
+      <title>POST Request Count</title>
     </head>
     <body>
-      <div id="content">${currentContent}</div>
-      <div id="logs"></div>
+      <h1>Number of POST requests: <span id="postRequestCount">0</span></h1>
       <script src="/socket.io/socket.io.js"></script>
       <script>
         const socket = io();
-        // Listen for content updates from the server
-        socket.on('contentUpdated', (newContent) => {
-          document.getElementById('content').innerHTML = newContent;
-        });
-        // Listen for logs from the server
-        socket.on('log', (message) => {
-          const logElement = document.createElement('div');
-          logElement.textContent = message;
-          document.getElementById('logs').appendChild(logElement);
+        socket.on('postRequestCountUpdate', (count) => {
+          document.getElementById('postRequestCount').textContent = count;
         });
       </script>
     </body>
@@ -43,25 +35,16 @@ app.get('/', (req, res) => {
 
 // Endpoint to update content
 app.post('/update', (req, res) => {
-    let newContent = ''; // Get new content from request body
-    req.on('data', chunk => {
-        newContent += chunk;
-    });
-
-    req.on('end', () => {
-        currentContent = newContent;
-        io.emit('contentUpdated', newContent); // Broadcast the new content to all clients
-        res.end('Content updated successfully');
-    });
+    postRequestCount++; // Increment the counter
+    io.emit('postRequestCountUpdate', postRequestCount); // Broadcast the updated post request count
+    res.end('Content updated successfully');
 });
 
 // WebSocket connection
 io.on('connection', (socket) => {
     console.log('A client connected');
-    // Send the current content to the new client
-    socket.emit('contentUpdated', currentContent);
-    // Log to all clients when a client connects
-    io.emit('log', 'A client connected');
+    // Send the initial post request count to the new client
+    socket.emit('postRequestCountUpdate', postRequestCount);
 });
 
 server.listen(3000, () => {
