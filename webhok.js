@@ -6,17 +6,8 @@ app.use(express.json());
 
 // Verify the Facebook webhook
 app.get('/', (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-  if (mode && token) {
-    if (mode === 'subscribe' && token === 'hello') {
-      console.log('WEBHOOK_VERIFIED');
-      res.status(200).send(challenge);
-    } else {
-      res.sendStatus(403);
-    }
-  }
+  
+  res.status(200).send('WEBHOOK_VERIFIED');
 });
 
 // Handle Facebook webhook events
