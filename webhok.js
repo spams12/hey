@@ -1,62 +1,69 @@
+// Server (app.js)
 const express = require('express');
+const http = require('http');
+const socketIO = require('socket.io');
+
 const app = express();
+const server = http.createServer(app);
+const io = socketIO(server);
 
-// Parse incoming requests with JSON payloads
-app.use(express.json());
+let currentContent = ''; // Current content of the HTML page
 
-// Verify the Facebook webhook
-app.get('/api', (req, res) => {
-    verifyToken = "hey"
-    console.log(req)
-    let mode = req.query["hub.mode"];
-    let token = req.query["hub.verify_token"];
-    let challenge = req.query["hub.challenge"];
-
-    // Check if a token and mode is in the query string of the request
-    if (mode && token) {
-        // Check the mode and token sent is correct
-        if (mode === "subscribe" && token === verifyToken) {
-            // Respond with the challenge token from the request
-            console.log("WEBHOOK_VERIFIED");
-            res.status(200).send(challenge);
-        } else {
-            // Respond with '403 Forbidden' if verify tokens do not match
-            res.sendStatus(403);
-        }
-    }
+// Serve the HTML page
+app.get('/', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Dynamic Content</title>
+    </head>
+    <body>
+      <div id="content">${currentContent}</div>
+      <div id="logs"></div>
+      <script src="/socket.io/socket.io.js"></script>
+      <script>
+        const socket = io();
+        // Listen for content updates from the server
+        socket.on('contentUpdated', (newContent) => {
+          document.getElementById('content').innerHTML = newContent;
+        });
+        // Listen for logs from the server
+        socket.on('log', (message) => {
+          const logElement = document.createElement('div');
+          logElement.textContent = message;
+          document.getElementById('logs').appendChild(logElement);
+        });
+      </script>
+    </body>
+    </html>
+  `);
 });
 
-// Handle Facebook webhook events
-app.post('/api', (req, res) => {
-    const body = req.body;
+// Endpoint to update content
+app.post('/update', (req, res) => {
+    let newContent = ''; // Get new content from request body
+    req.on('data', chunk => {
+        newContent += chunk;
+    });
 
-    console.log('Received webhook event:', body);
-
-    // Process the event data as needed
-
-    res.status(200).send('EVENT_RECEIVED');
-});
-app.get('/1', (req, res) => {
-    const page1HTML = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Page 1</title>
-        </head>
-        <body>
-            <h1>This is Page 1</h1>
-            <p>This is the content of Page 1.</p>
-        </body>
-        </html>
-    `;
-    res.send(page1HTML);
+    req.on('end', () => {
+        currentContent = newContent;
+        io.emit('contentUpdated', newContent); // Broadcast the new content to all clients
+        res.end('Content updated successfully');
+    });
 });
 
-// Route to serve second inline HTML page
-// Start the server
-const port = 8080;
-app.listen(port, () => {
-    console.log(`Server started on port ${port}`);
+// WebSocket connection
+io.on('connection', (socket) => {
+    console.log('A client connected');
+    // Send the current content to the new client
+    socket.emit('contentUpdated', currentContent);
+    // Log to all clients when a client connects
+    io.emit('log', 'A client connected');
+});
+
+server.listen(3000, () => {
+    console.log('Server is running on port 3000');
 });
